@@ -4,7 +4,7 @@ import json
 
 # --- CONFIGURAÇÃO DA API ---
 # Cole sua chave aqui (Lembre-se de não compartilhar esse arquivo publicamente)
-CHAVE_API = st.secrets["AIzaSyCZs7AZGgXKwGE9KdwQEjNa39UKzQnvL4I"]
+CHAVE_API = st.secrets["GEMINI_API_KEY"]
 genai.configure(api_key=CHAVE_API)
 
 # --- INTERFACE DO SITE ---
