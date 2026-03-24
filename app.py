@@ -3,87 +3,68 @@ import google.generativeai as genai
 import json
 
 # --- CONFIGURAÇÃO DA API ---
-# Cole sua chave aqui (Lembre-se de não compartilhar esse arquivo publicamente)
 CHAVE_API = st.secrets["GEMINI_API_KEY"]
 genai.configure(api_key=CHAVE_API)
 
-# --- INTERFACE DO SITE ---
-st.set_page_config(page_title="Validador de Estágios", layout="centered")
+# --- INTERFACE ---
+st.set_page_config(page_title="Validador Fatecie", layout="centered")
 st.title("Validador de Estágios - Fatecie")
-st.markdown("Análise automática de termos de compromisso.")
+st.markdown("Análise automática baseada no Roteiro Ana Julia.")
 
-# Área de Upload
 arquivo_pdf = st.file_uploader("Anexe o termo de compromisso", type=["pdf"])
 
 if arquivo_pdf is not None:
-    with st.spinner("A Inteligência Artificial está lendo e cruzando as regras..."):
+    with st.spinner("Validando regras de carga horária e dados..."):
         try:
-            # Prepara o PDF para a IA ler
-            pdf_parts = [
-                {
-                    "mime_type": "application/pdf",
-                    "data": arquivo_pdf.getvalue()
-                }
-            ]
+            pdf_parts = [{"mime_type": "application/pdf", "data": arquivo_pdf.getvalue()}]
 
-            # O Prompt Mestre com as regras
             prompt = """
-            Você é um analista administrativo de estágios da Fatecie. 
-            Analise o documento PDF anexo e valide as regras:
-            1. CNPJ da concedente preenchido.
-            2. Supervisor precisa ser 'professor', formação compatível, com CPF e Telefone.
-            3. Cláusula 1.4 preenchida corretamente (Médio e/ou Fundamental).
-            4. Vigência e carga horária (máximo 6h/dia, 30h/semana).
-            5. Atividades descrevendo a prática presencial e Conhecimentos descrevendo expectativas.
-            6. Presença de assinaturas (exige carimbo se for física).
+            Você é um analista rigoroso de estágios da Fatecie. Analise o PDF e valide:
+            
+            1. SUPERVISOR: Deve ser 'professor regente' com formação na área, CPF e Telefone.
+            2. CLÁUSULA 1.4 vs 2.2 (REGRA DE OURO):
+               - Para Artes, História, Geografia e Biológicas:
+                 * Se APENAS UMA área (Fundamental ou Médio) estiver marcada na 1.4 -> Carga Total deve ser 16h.
+                 * Se AS DUAS áreas estiverem marcadas na 1.4 -> Carga Total deve ser 32h.
+               - Para Letras (Port/Ing ou Port/Lib): 
+                 * Segue a mesma lógica de 16h por nível, totalizando 32h se ambos marcados.
+               - Verifique se o cálculo de dias na 2.2 bate com a carga diária (máx 6h) e semanal (máx 30h).
+            3. ASSINATURAS: Se manuais, EXIGEM carimbo. Se via Clicksign (assinatura digital), o carimbo é dispensado.
+            4. ATIVIDADES: Devem ser presenciais. CONHECIMENTOS: Devem ser expectativas.
 
-            Retorne APENAS um JSON válido. Não use blocos de código (```json), devolva apenas o texto bruto no formato abaixo:
+            Retorne APENAS o JSON:
             {
-              "resumo": { "ok": 2, "pendencias": 1, "atencao": 0 },
-              "concedente": { "status": "ok", "mensagem": "CNPJ e Área preenchidos corretamente." },
-              "supervisor": { "status": "ok", "mensagem": "Professor com formação em Ciências Biológicas." },
-              "vigencia_carga": { "status": "pendencia", "mensagem": "Data final incompatível com as 400h." },
-              "atividades": { "status": "ok", "mensagem": "Atividades descritas." },
-              "assinaturas": { "status": "atencao", "mensagem": "Faltam assinaturas físicas/carimbo." }
+              "resumo": { "ok": 0, "pendencias": 0, "atencao": 0 },
+              "concedente": { "status": "ok|pendencia", "mensagem": "..." },
+              "supervisor": { "status": "ok|pendencia", "mensagem": "..." },
+              "vigencia_carga": { "status": "ok|pendencia", "mensagem": "..." },
+              "atividades": { "status": "ok|pendencia", "mensagem": "..." },
+              "assinaturas": { "status": "ok|atencao", "mensagem": "..." }
             }
             """
 
-            # ---> AQUI ESTÁ A MÁGICA: Usando o modelo novo que a sua chave suporta! <---
             model = genai.GenerativeModel('gemini-2.5-flash')
             resposta = model.generate_content([prompt, pdf_parts[0]])
             
-            # Limpa a resposta caso a IA coloque formatação de markdown e transforma em dicionário
             texto_limpo = resposta.text.strip().replace('```json', '').replace('```', '')
             dados = json.loads(texto_limpo)
 
-            # --- EXIBIÇÃO DOS RESULTADOS NA TELA ---
-            st.divider()
-            
-            # Placar do topo
+            # Exibição dos cards
             col1, col2, col3 = st.columns(3)
-            col1.metric("🟢 OK", dados['resumo'].get('ok', 0))
-            col2.metric("🔴 Pendências", dados['resumo'].get('pendencias', 0))
-            col3.metric("🟡 Atenção", dados['resumo'].get('atencao', 0))
+            col1.metric("🟢 OK", dados['resumo']['ok'])
+            col2.metric("🔴 Pendências", dados['resumo']['pendencias'])
+            col3.metric("🟡 Atenção", dados['resumo']['atencao'])
 
-            st.write("### Detalhes da Análise")
-
-            # Função auxiliar para pintar as caixinhas da cor certa
             def exibir_card(titulo, info):
-                status = info.get('status', '').lower()
-                mensagem = info.get('mensagem', '')
-                if status == 'ok':
-                    st.success(f"**{titulo}**\n\n{mensagem}")
-                elif status == 'pendencia':
-                    st.error(f"**{titulo}**\n\n{mensagem}")
-                else:
-                    st.warning(f"**{titulo}**\n\n{mensagem}")
+                if info['status'] == 'ok': st.success(f"**{titulo}**: {info['mensagem']}")
+                elif info['status'] == 'pendencia': st.error(f"**{titulo}**: {info['mensagem']}")
+                else: st.warning(f"**{titulo}**: {info['mensagem']}")
 
-            # Gera os cards visuais idênticos ao seu print
-            exibir_card("Concedente", dados.get("concedente", {}))
-            exibir_card("Supervisor", dados.get("supervisor", {}))
-            exibir_card("Vigência e Carga Horária", dados.get("vigencia_carga", {}))
-            exibir_card("Atividades", dados.get("atividades", {}))
-            exibir_card("Assinaturas", dados.get("assinaturas", {}))
+            exibir_card("Concedente", dados['concedente'])
+            exibir_card("Supervisor", dados['supervisor'])
+            exibir_card("Vigência e Carga Horária", dados['vigencia_carga'])
+            exibir_card("Atividades", dados['atividades'])
+            exibir_card("Assinaturas", dados['assinaturas'])
 
         except Exception as e:
-            st.error(f"Ocorreu um erro durante a análise: {e}")
+            st.error(f"Erro na análise: {e}")
