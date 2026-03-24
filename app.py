@@ -75,7 +75,7 @@ if arquivo_pdf is not None:
             """
 
             # Uso do modelo Gemini 2.0 Flash conforme lista de permissão do usuário
-            model = genai.GenerativeModel('gemini-2.0-flash')
+            model = genai.GenerativeModel('gemini-2.5-flash')
             resposta = chamar_gemini_com_retry(model, [prompt_mestre, pdf_data[0]])
             
             # Limpeza e conversão do JSON
