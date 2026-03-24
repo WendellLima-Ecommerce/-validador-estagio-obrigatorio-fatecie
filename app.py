@@ -25,12 +25,12 @@ if arquivo_pdf is not None:
             Você é um analista do Setor de Estágios da UniFatecie. Analise o PDF e gere um parecer JSON:
 
             1. CARGA HORÁRIA (Roteiro Ana Julia):
-               - Artes, História, Geografia e Biológicas: 16h se marcar 1 área na 1.4; 32h se marcar as duas.
-               - Letras: 32h totais (16h Fundamental + 16h Médio).
-               - Máximo 6h/dia e 30h/semana.
+               - Artes, História, Geografia e Biológicas: 16h se marcar 1 área na 1.4; 32h se marcar as duas [cite: 187-193].
+               - Letras: 32h totais (16h Fundamental + 16h Médio) [cite: 178-181].
+               - Máximo 6h/dia e 30h/semana[cite: 296, 528].
 
             2. SUPERVISOR:
-               - Deve ser 'professor regente'. CPF, Telefone, E-mail e Formação na área são obrigatórios.
+               - Deve ser 'professor regente'. CPF, Telefone, E-mail e Formação na área são obrigatórios [cite: 198-199].
 
             3. ASSINATURAS E E-MAILS (Lógica do Áudio):
                - Se NÃO houver assinatura E carimbo do CONCEDENTE e do SUPERVISOR:
@@ -74,4 +74,17 @@ if arquivo_pdf is not None:
             with col_esq:
                 st.subheader("Análise Técnica")
                 for titulo, info in dados['cards'].items():
-                    if info['status'] ==
+                    if info['status'] == 'ok': st.success(f"**{titulo.upper()}**: {info['mensagem']}")
+                    elif info['status'] == 'atencao': st.warning(f"**{titulo.upper()}**: {info['mensagem']}")
+                    else: st.error(f"**{titulo.upper()}**: {info['mensagem']}")
+                
+                # Exibe a ação recomendada do áudio
+                st.write("---")
+                st.write(f"### 📧 Ação de Envio: \n**{dados['cards']['assinaturas'].get('acao_envio', 'Análise pendente')}**")
+
+            with col_dir:
+                st.subheader("Parecer para o Sistema")
+                st.text_area("Copie e cole este texto:", value=dados['mensagem_aluno'], height=350)
+
+        except Exception as e:
+            st.error(f"Erro na análise: {e}")
